@@ -82,4 +82,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: pdf-editor-signed
-        path: platforms/android/app/build/outputs/apk/release/pdf-editor-signed.apk
+        path: platforms/android/app/build/outputs/apk/release/pdf-editor-signed.apk 
