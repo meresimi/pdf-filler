@@ -50,16 +50,10 @@ jobs:
     - name: Add Android platform
       run: cordova platform add android
     
-    - name: Create Gradle wrapper
+    - name: Build Android APK with Gradle 8.7
       run: |
         cd platforms/android
-        gradle wrapper --gradle-version 8.7 --distribution-type bin
-    
-    - name: Make gradlew executable
-      run: chmod +x platforms/android/gradlew
-    
-    - name: Build Android APK
-      run: cordova build android --release -- --gradleArg=--no-daemon
+        gradle assembleRelease --no-daemon
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
