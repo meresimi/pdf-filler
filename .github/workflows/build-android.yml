@@ -55,8 +55,31 @@ jobs:
         cd platforms/android
         gradle assembleRelease --no-daemon
     
-    - name: Upload APK
+    - name: Generate debug keystore
+      run: |
+        keytool -genkey -v -keystore debug.keystore -alias androiddebugkey \
+          -keyalg RSA -keysize 2048 -validity 10000 \
+          -storepass android -keypass android \
+          -dname "CN=Android Debug,O=Android,C=US"
+    
+    - name: Sign APK
+      run: |
+        jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
+          -keystore debug.keystore -storepass android -keypass android \
+          platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+          androiddebugkey
+    
+    - name: Verify APK signature
+      run: jarsigner -verify -verbose platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
+    
+    - name: Zipalign APK
+      run: |
+        $ANDROID_HOME/build-tools/33.0.2/zipalign -v 4 \
+          platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk \
+          platforms/android/app/build/outputs/apk/release/pdf-editor-signed.apk
+    
+    - name: Upload Signed APK
       uses: actions/upload-artifact@v4
       with:
-        name: app-release-unsigned
-        path: platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk
+        name: pdf-editor-signed
+        path: platforms/android/app/build/outputs/apk/release/pdf-editor-signed.apk
