@@ -1,11 +1,9 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="com.meresimi.pdfeditor" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget id="com.meresimi.fillpdfform" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>PDF Editor</name>
-    <description>
-        A PDF reader and form editor application
-    </description>
-    <author email="contact@meresimi.com" href="https://meresimi.com">
-        MereSimi Studios Ltd
+    <description>A mobile PDF form filling and editing application</description>
+    <author email="your@email.com" href="https://github.com/meresimi">
+        MereSimi
     </author>
     <content src="index.html" />
     <access origin="*" />
@@ -15,17 +13,10 @@
     <allow-intent href="sms:*" />
     <allow-intent href="mailto:*" />
     <allow-intent href="geo:*" />
-    
     <platform name="android">
         <allow-intent href="market:*" />
+        <preference name="android-minSdkVersion" value="24" />
+        <preference name="android-targetSdkVersion" value="33" />
     </platform>
-    
-    <preference name="DisallowOverscroll" value="true" />
-    <preference name="android-minSdkVersion" value="24" />
-    <preference name="android-targetSdkVersion" value="33" />
-    <preference name="Orientation" value="default" />
-    
-    <!-- Plugins - Free Plan Compatible -->
     <plugin name="cordova-plugin-file" spec="^8.0.0" />
-    <plugin name="cordova-plugin-whitelist" spec="^1.3.5" />
 </widget>
