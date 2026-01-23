@@ -1,0 +1,38 @@
+{
+  "app_id": "com.meresimi.pdfeditor",
+  "app_name": "PDF Editor",
+  "version": "1.0.0",
+  "description": "PDF Reader and Form Editor",
+  "author": {
+    "name": "MereSimi Studios Ltd",
+    "email": "contact@meresimi.com",
+    "url": "https://meresimi.com"
+  },
+  "android": {
+    "minSdkVersion": 24,
+    "targetSdkVersion": 33,
+    "compileSdkVersion": 33,
+    "buildToolsVersion": "33.0.0",
+    "permissions": [
+      "READ_EXTERNAL_STORAGE",
+      "WRITE_EXTERNAL_STORAGE"
+    ]
+  },
+  "preferences": {
+    "DisallowOverscroll": true,
+    "Orientation": "default"
+  },
+  "icons": {
+    "android": {
+      "ldpi": "res/icon/android/ldpi.png",
+      "mdpi": "res/icon/android/mdpi.png",
+      "hdpi": "res/icon/android/hdpi.png",
+      "xhdpi": "res/icon/android/xhdpi.png",
+      "xxhdpi": "res/icon/android/xxhdpi.png",
+      "xxxhdpi": "res/icon/android/xxxhdpi.png"
+    }
+  },
+  "splashscreens": {
+    "android": "res/screen/android/splash.png"
+  }
+}
