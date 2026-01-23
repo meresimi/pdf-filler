@@ -2,7 +2,7 @@
 <widget id="com.meresimi.fillpdfform" version="1.0.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>PDF Editor</name>
     <description>A mobile PDF form filling and editing application</description>
-    <author email="your@email.com" href="https://github.com/meresimi">
+    <author email="simionabobai@gmail.com" href="https://github.com/meresimi">
         MereSimi
     </author>
     <content src="index.html" />
@@ -16,7 +16,8 @@
     <platform name="android">
         <allow-intent href="market:*" />
         <preference name="android-minSdkVersion" value="24" />
-        <preference name="android-targetSdkVersion" value="33" />
+        <preference name="android-targetSdkVersion" value="34" />
+        <preference name="android-compileSdkVersion" value="34" />
     </platform>
     <plugin name="cordova-plugin-file" spec="^8.0.0" />
 </widget>
