@@ -21,15 +21,15 @@ class FormEditor {
 
     refreshAnnotationLayer() {
         if (!this.initialized) this.initialize();
-        
+
         this.annotationLayer = document.getElementById('annotationLayer');
         if (!this.annotationLayer) {
             console.error('Annotation layer not found');
             return;
         }
-        
+
         this.annotationLayer.innerHTML = '';
-        
+
         const pageAnnotations = this.annotationsByPage[this.currentPage] || [];
         pageAnnotations.forEach(annotation => {
             this.renderAnnotation(annotation);
@@ -67,14 +67,17 @@ class FormEditor {
 
     addTextAnnotation(text, x, y) {
         if (!this.initialized) this.initialize();
-        
+
         const annotation = {
             type: 'text',
             text: text,
             x: x,
             y: y,
             page: this.currentPage,
-            id: Date.now()
+            id: Date.now(),
+            locked: true,
+            fontSize: 12,
+            color: '#000000'
         };
 
         if (!this.annotationsByPage[this.currentPage]) {
@@ -86,13 +89,13 @@ class FormEditor {
 
     addCheckbox() {
         if (!this.initialized) this.initialize();
-        
+
         const canvas = document.getElementById('pdfCanvas');
         if (!canvas) {
             alert('Please load a PDF first');
             return;
         }
-        
+
         const rect = canvas.getBoundingClientRect();
         const x = rect.width / 2;
         const y = rect.height / 2;
@@ -103,7 +106,8 @@ class FormEditor {
             x: x,
             y: y,
             page: this.currentPage,
-            id: Date.now()
+            id: Date.now(),
+            locked: true
         };
 
         if (!this.annotationsByPage[this.currentPage]) {
@@ -111,7 +115,7 @@ class FormEditor {
         }
         this.annotationsByPage[this.currentPage].push(annotation);
         this.renderAnnotation(annotation);
-        
+
         console.log('Checkbox added at', x, y);
     }
 
@@ -120,33 +124,91 @@ class FormEditor {
             console.error('Cannot render - annotation layer not ready');
             return;
         }
-        
+
         const element = document.createElement('div');
         element.className = 'annotation-item';
         element.dataset.id = annotation.id;
         element.style.left = annotation.x + 'px';
         element.style.top = annotation.y + 'px';
 
+        // Add locked state if not exists
+        if (annotation.locked === undefined) {
+            annotation.locked = true;
+        }
+
         if (annotation.type === 'text') {
             element.className += ' text-annotation';
             element.textContent = annotation.text;
-            element.contentEditable = true;
-
-            element.addEventListener('blur', (e) => {
-                annotation.text = e.target.textContent.trim();
-            });
-        } else if (annotation.type === 'checkbox') {
-            element.className += ' checkbox-annotation';
-            if (annotation.checked) {
-                element.classList.add('checked');
+            
+            // Set contentEditable based on locked state
+            element.contentEditable = !annotation.locked;
+            
+            if (annotation.locked) {
+                element.classList.add('locked');
             }
 
-            element.addEventListener('click', () => {
-                annotation.checked = !annotation.checked;
-                element.classList.toggle('checked');
+            // Handle click to unlock/lock
+            element.addEventListener('click', (e) => {
+                if (annotation.locked) {
+                    // Unlock on first click
+                    annotation.locked = false;
+                    element.contentEditable = true;
+                    element.classList.remove('locked');
+                    element.classList.add('editable');
+                    element.focus();
+                    e.stopPropagation();
+                }
+            });
+
+            // Lock when clicking outside
+            element.addEventListener('blur', (e) => {
+                annotation.text = e.target.textContent.trim();
+                annotation.locked = true;
+                element.contentEditable = false;
+                element.classList.remove('editable');
+                element.classList.add('locked');
+            });
+            
+        } else if (annotation.type === 'checkbox') {
+            element.className += ' checkbox-annotation';
+            
+            if (annotation.locked === undefined) {
+                annotation.locked = true;
+            }
+            
+            if (annotation.locked) {
+                element.classList.add('locked');
+            }
+            
+            if (annotation.checked) {
+                element.classList.add('checked');
+                element.textContent = '✓';
+            } else {
+                element.textContent = '';
+            }
+
+            element.addEventListener('click', (e) => {
+                if (annotation.locked) {
+                    // Unlock on first click
+                    annotation.locked = false;
+                    element.classList.remove('locked');
+                    element.classList.add('editable');
+                } else {
+                    // Toggle checkbox when unlocked
+                    annotation.checked = !annotation.checked;
+                    if (annotation.checked) {
+                        element.classList.add('checked');
+                        element.textContent = '✓';
+                    } else {
+                        element.classList.remove('checked');
+                        element.textContent = '';
+                    }
+                }
+                e.stopPropagation();
             });
         }
 
+        // Make draggable only when unlocked
         this.makeDraggable(element, annotation);
         this.annotationLayer.appendChild(element);
     }
@@ -156,6 +218,11 @@ class FormEditor {
         let startX, startY, initialX, initialY;
 
         const startDrag = (e) => {
+            // Don't drag if locked
+            if (annotation.locked) {
+                return;
+            }
+            
             if (e.target.contentEditable === 'true' && e.type === 'mousedown') {
                 return;
             }
@@ -174,7 +241,7 @@ class FormEditor {
         };
 
         const drag = (e) => {
-            if (!isDragging) return;
+            if (!isDragging || annotation.locked) return;
             e.preventDefault();
 
             const touch = e.touches ? e.touches[0] : e;
@@ -212,7 +279,7 @@ class FormEditor {
     async applyAnnotationsToPDF(pdfBytes) {
         try {
             const { PDFDocument, rgb, StandardFonts } = window.PDFLib;
-            
+
             const pdfDoc = await PDFDocument.load(pdfBytes);
             const pages = pdfDoc.getPages();
             const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -236,17 +303,30 @@ class FormEditor {
                         page.drawText(annotation.text, {
                             x: x,
                             y: y - 12,
-                            size: 12,
+                            size: annotation.fontSize || 12,
                             font: font,
                             color: rgb(0, 0, 0)
                         });
-                    } else if (annotation.type === 'checkbox' && annotation.checked) {
-                        page.drawText('✓', {
+                    } else if (annotation.type === 'checkbox') {
+                        // Draw checkbox border
+                        page.drawRectangle({
                             x: x,
-                            y: y - 16,
-                            size: 20,
-                            color: rgb(0, 0.5, 0)
+                            y: y - 20,
+                            width: 20,
+                            height: 20,
+                            borderColor: rgb(0, 0, 0),
+                            borderWidth: 2
                         });
+                        
+                        // Draw checkmark if checked
+                        if (annotation.checked) {
+                            page.drawText('✓', {
+                                x: x + 2,
+                                y: y - 16,
+                                size: 18,
+                                color: rgb(0, 0, 0)
+                            });
+                        }
                     }
                 }
             }
