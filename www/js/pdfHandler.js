@@ -4,11 +4,15 @@ class PDFHandler {
     constructor() {
         this.pdfDoc = null;
         this.currentPage = 1;
-        this.scale = 1.5;
+        this.scale = 1.0; // Start at default zoom (zoom out max)
+        this.minScale = 1.0;
+        this.maxScale = 2.0;
+        this.zoomStep = 0.2; // 5 clicks from min to max: 1.0, 1.2, 1.4, 1.6, 1.8, 2.0
         this.canvas = null;
         this.ctx = null;
         this.pdfBytes = null;
         this.formEditor = null;
+        this.canvasContainer = null;
     }
 
     setFormEditor(editor) {
@@ -27,12 +31,14 @@ class PDFHandler {
             
             this.canvas = document.getElementById('pdfCanvas');
             this.ctx = this.canvas.getContext('2d');
+            this.canvasContainer = document.getElementById('canvasContainer');
             
             console.log('PDF loaded. Pages:', this.pdfDoc.numPages);
             this.currentPage = 1;
+            this.scale = this.minScale; // Start at zoom out max
             await this.renderPage(this.currentPage);
             
-            this.setupPinchZoom();
+            this.setupTouchPan();
             
             return true;
         } catch (error) {
@@ -42,33 +48,41 @@ class PDFHandler {
         }
     }
 
-    setupPinchZoom() {
-        let initialDistance = 0;
-        let initialScale = this.scale;
+    setupTouchPan() {
+        let isPanning = false;
+        let startX = 0;
+        let startY = 0;
+        let scrollLeft = 0;
+        let scrollTop = 0;
 
-        this.canvas.addEventListener('touchstart', (e) => {
+        this.canvasContainer.addEventListener('touchstart', (e) => {
             if (e.touches.length === 2) {
                 e.preventDefault();
-                initialDistance = this.getDistance(e.touches[0], e.touches[1]);
-                initialScale = this.scale;
+                isPanning = true;
+                startX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                startY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                scrollLeft = this.canvasContainer.scrollLeft;
+                scrollTop = this.canvasContainer.scrollTop;
             }
         });
 
-        this.canvas.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2) {
+        this.canvasContainer.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && isPanning) {
                 e.preventDefault();
-                const currentDistance = this.getDistance(e.touches[0], e.touches[1]);
-                const scaleChange = currentDistance / initialDistance;
-                this.scale = Math.max(0.5, Math.min(3, initialScale * scaleChange));
-                this.renderPage(this.currentPage);
+                const currentX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                
+                const dx = currentX - startX;
+                const dy = currentY - startY;
+                
+                this.canvasContainer.scrollLeft = scrollLeft - dx;
+                this.canvasContainer.scrollTop = scrollTop - dy;
             }
         });
-    }
 
-    getDistance(touch1, touch2) {
-        const dx = touch1.clientX - touch2.clientX;
-        const dy = touch1.clientY - touch2.clientY;
-        return Math.sqrt(dx * dx + dy * dy);
+        this.canvasContainer.addEventListener('touchend', () => {
+            isPanning = false;
+        });
     }
 
     async renderPage(pageNum) {
@@ -96,7 +110,7 @@ class PDFHandler {
                 this.formEditor.setPage(pageNum);
             }
             
-            console.log('Page rendered:', pageNum, 'scale:', this.scale);
+            console.log('Page rendered:', pageNum, 'scale:', this.scale.toFixed(1));
         } catch (error) {
             console.error('Error rendering page:', error);
             throw error;
@@ -118,15 +132,23 @@ class PDFHandler {
     }
 
     zoomIn() {
-        this.scale = Math.min(3, this.scale + 0.25);
-        this.renderPage(this.currentPage);
-        console.log('Zoom in, new scale:', this.scale);
+        if (this.scale < this.maxScale) {
+            this.scale = Math.min(this.maxScale, this.scale + this.zoomStep);
+            this.renderPage(this.currentPage);
+            console.log('Zoom in, scale:', this.scale.toFixed(1));
+        } else {
+            console.log('Already at max zoom');
+        }
     }
 
     zoomOut() {
-        this.scale = Math.max(0.5, this.scale - 0.25);
-        this.renderPage(this.currentPage);
-        console.log('Zoom out, new scale:', this.scale);
+        if (this.scale > this.minScale) {
+            this.scale = Math.max(this.minScale, this.scale - this.zoomStep);
+            this.renderPage(this.currentPage);
+            console.log('Zoom out, scale:', this.scale.toFixed(1));
+        } else {
+            console.log('Already at min zoom');
+        }
     }
 }
 

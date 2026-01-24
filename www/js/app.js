@@ -1,4 +1,3 @@
-// Fallback if deviceready doesn't fire within 3 seconds
 let deviceReadyFired = false;
 
 document.addEventListener('deviceready', function() {
@@ -6,7 +5,6 @@ document.addEventListener('deviceready', function() {
     onDeviceReady();
 }, false);
 
-// Fallback for web testing or if deviceready fails
 setTimeout(function() {
     if (!deviceReadyFired) {
         console.log('deviceready timeout - initializing anyway');
@@ -124,28 +122,45 @@ function showEditorPanel() {
     document.getElementById('editorPanel').style.display = 'flex';
 }
 
-function savePDF() {
+async function savePDF() {
     showLoading();
 
-    app.formEditor.applyAnnotationsToPDF(app.pdfHandler.pdfBytes).then(modifiedPdfBytes => {
-        const fileName = 'edited_' + Date.now() + '.pdf';
+    try {
+        // Check if there are any annotations to apply
+        const hasAnnotations = Object.keys(app.formEditor.annotationsByPage).length > 0;
+        
+        if (!hasAnnotations) {
+            // No annotations, just save original PDF
+            const blob = new Blob([app.pdfHandler.pdfBytes], { type: 'application/pdf' });
+            downloadBlob(blob, 'original_' + Date.now() + '.pdf');
+            hideLoading();
+            alert('PDF saved (no edits made)');
+            return;
+        }
+
+        // Apply annotations
+        const modifiedPdfBytes = await app.formEditor.applyAnnotationsToPDF(app.pdfHandler.pdfBytes);
         const blob = new Blob([modifiedPdfBytes], { type: 'application/pdf' });
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, 'edited_' + Date.now() + '.pdf');
         
         hideLoading();
-        alert('PDF saved to Downloads: ' + fileName);
-    }).catch(error => {
+        alert('PDF saved successfully!');
+    } catch (error) {
         hideLoading();
+        console.error('Save error:', error);
         alert('Error saving PDF: ' + error.message);
-    });
+    }
+}
+
+function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
 }
 
 function showLoading() {
@@ -158,5 +173,4 @@ function hideLoading() {
     if (loader) loader.style.display = 'none';
 }
 
-// Log when scripts load
 console.log('app.js loaded');
