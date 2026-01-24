@@ -7,28 +7,48 @@
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>PDF Editor</h1>
-        <button id="openPdfBtn" class="btn">📄 Open PDF</button>
-        
-        <div id="pdfViewer" style="display: none;">
-            <canvas id="pdfCanvas"></canvas>
-            <div id="pageControls">
-                <button id="prevPage" class="btn">Previous</button>
-                <span id="pageInfo"></span>
-                <button id="nextPage" class="btn">Next</button>
-            </div>
-            <button id="editFormBtn" class="btn">Edit Form Fields</button>
+    <div id="welcomeScreen" class="container">
+        <h1>PDF Form Editor</h1>
+        <p>Select a PDF file to start editing</p>
+        <button id="welcomeOpenBtn" class="btn">📄 Open PDF File</button>
+    </div>
+
+    <div id="pdfViewer" style="display: none;">
+        <div id="toolbar">
+            <button id="openFileBtn" class="btn">Open File</button>
+            <button id="prevPageBtn" class="btn">Previous</button>
+            <span id="pageInfo"></span>
+            <button id="nextPageBtn" class="btn">Next</button>
+            <button id="zoomOutBtn" class="btn">-</button>
+            <button id="zoomInBtn" class="btn">+</button>
             <button id="saveBtn" class="btn">Save PDF</button>
         </div>
 
-        <div id="formEditor" style="display: none;">
-            <h2>Form Fields</h2>
-            <div id="formFields"></div>
-            <button id="applyChangesBtn" class="btn">Apply Changes</button>
-            <button id="cancelEditBtn" class="btn">Cancel</button>
+        <div id="mainContent">
+            <div id="canvasContainer">
+                <canvas id="pdfCanvas"></canvas>
+            </div>
+
+            <div id="editorPanel" style="display: none;">
+                <h3>Editor Tools</h3>
+                <button id="addTextBtn" class="btn">Add Text</button>
+                <button id="addCheckBtn" class="btn">Add Checkbox</button>
+                <button id="clearBtn" class="btn">Clear All</button>
+
+                <div id="textInputPanel" style="display: none;">
+                    <input type="text" id="textInput" placeholder="Enter text">
+                    <button id="addTextConfirm" class="btn">Add</button>
+                    <button id="cancelText" class="btn">Cancel</button>
+                </div>
+            </div>
         </div>
     </div>
+
+    <div id="loadingIndicator" style="display: none;">
+        <p>Loading...</p>
+    </div>
+
+    <input type="file" id="fileInput" accept="application/pdf" style="display: none;">
 
     <!-- Use CDN for PDF libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
