@@ -4,15 +4,16 @@ class PDFHandler {
     constructor() {
         this.pdfDoc = null;
         this.currentPage = 1;
-        this.scale = 1.0; // Start at default zoom (zoom out max)
+        this.scale = 1.0;
         this.minScale = 1.0;
-        this.maxScale = 2.0;
-        this.zoomStep = 0.2; // 5 clicks from min to max: 1.0, 1.2, 1.4, 1.6, 1.8, 2.0
+        this.maxScale = 3.5; // 1.0 + (0.5 * 5) = 3.5
+        this.zoomStep = 0.5;
         this.canvas = null;
         this.ctx = null;
         this.pdfBytes = null;
         this.formEditor = null;
         this.canvasContainer = null;
+        this.isRendering = false;
     }
 
     setFormEditor(editor) {
@@ -35,7 +36,7 @@ class PDFHandler {
             
             console.log('PDF loaded. Pages:', this.pdfDoc.numPages);
             this.currentPage = 1;
-            this.scale = this.minScale; // Start at zoom out max
+            this.scale = this.minScale;
             await this.renderPage(this.currentPage);
             
             this.setupTouchPan();
@@ -64,7 +65,7 @@ class PDFHandler {
                 scrollLeft = this.canvasContainer.scrollLeft;
                 scrollTop = this.canvasContainer.scrollTop;
             }
-        });
+        }, { passive: false });
 
         this.canvasContainer.addEventListener('touchmove', (e) => {
             if (e.touches.length === 2 && isPanning) {
@@ -78,7 +79,7 @@ class PDFHandler {
                 this.canvasContainer.scrollLeft = scrollLeft - dx;
                 this.canvasContainer.scrollTop = scrollTop - dy;
             }
-        });
+        }, { passive: false });
 
         this.canvasContainer.addEventListener('touchend', () => {
             isPanning = false;
@@ -86,68 +87,112 @@ class PDFHandler {
     }
 
     async renderPage(pageNum) {
+        if (this.isRendering) {
+            console.log('Already rendering, skipping...');
+            return;
+        }
+
         try {
+            this.isRendering = true;
+            
             if (!this.canvas) {
                 this.canvas = document.getElementById('pdfCanvas');
                 this.ctx = this.canvas.getContext('2d');
             }
             
+            console.log('Rendering page', pageNum, 'at scale', this.scale);
+            
             const page = await this.pdfDoc.getPage(pageNum);
             const viewport = page.getViewport({ scale: this.scale });
+            
+            // Store scroll position
+            const scrollLeft = this.canvasContainer ? this.canvasContainer.scrollLeft : 0;
+            const scrollTop = this.canvasContainer ? this.canvasContainer.scrollTop : 0;
             
             this.canvas.width = viewport.width;
             this.canvas.height = viewport.height;
             
+            // Clear canvas
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // Render PDF
             await page.render({
                 canvasContext: this.ctx,
                 viewport: viewport
             }).promise;
             
+            // Restore scroll position
+            if (this.canvasContainer) {
+                this.canvasContainer.scrollLeft = scrollLeft;
+                this.canvasContainer.scrollTop = scrollTop;
+            }
+            
             document.getElementById('pageInfo').textContent = 
                 `Page ${pageNum} of ${this.pdfDoc.numPages}`;
             
-            if (this.formEditor) {
-                this.formEditor.setPage(pageNum);
-            }
+            // Update annotations after a short delay
+            setTimeout(() => {
+                if (this.formEditor) {
+                    this.formEditor.setPage(pageNum);
+                }
+            }, 100);
             
-            console.log('Page rendered:', pageNum, 'scale:', this.scale.toFixed(1));
+            this.isRendering = false;
+            console.log('Page rendered successfully at scale:', this.scale);
         } catch (error) {
+            this.isRendering = false;
             console.error('Error rendering page:', error);
             throw error;
         }
     }
 
     previousPage() {
-        if (this.currentPage > 1) {
+        if (this.currentPage > 1 && !this.isRendering) {
             this.currentPage--;
             this.renderPage(this.currentPage);
         }
     }
 
     nextPage() {
-        if (this.currentPage < this.pdfDoc.numPages) {
+        if (this.currentPage < this.pdfDoc.numPages && !this.isRendering) {
             this.currentPage++;
             this.renderPage(this.currentPage);
         }
     }
 
     zoomIn() {
-        if (this.scale < this.maxScale) {
-            this.scale = Math.min(this.maxScale, this.scale + this.zoomStep);
+        if (this.isRendering) {
+            console.log('Currently rendering, please wait');
+            return;
+        }
+        
+        const newScale = this.scale + this.zoomStep;
+        
+        if (newScale <= this.maxScale) {
+            this.scale = newScale;
+            console.log('Zooming in to scale:', this.scale);
             this.renderPage(this.currentPage);
-            console.log('Zoom in, scale:', this.scale.toFixed(1));
         } else {
-            console.log('Already at max zoom');
+            console.log('Already at max zoom:', this.maxScale);
+            alert('Maximum zoom reached');
         }
     }
 
     zoomOut() {
-        if (this.scale > this.minScale) {
-            this.scale = Math.max(this.minScale, this.scale - this.zoomStep);
+        if (this.isRendering) {
+            console.log('Currently rendering, please wait');
+            return;
+        }
+        
+        const newScale = this.scale - this.zoomStep;
+        
+        if (newScale >= this.minScale) {
+            this.scale = newScale;
+            console.log('Zooming out to scale:', this.scale);
             this.renderPage(this.currentPage);
-            console.log('Zoom out, scale:', this.scale.toFixed(1));
         } else {
-            console.log('Already at min zoom');
+            console.log('Already at min zoom:', this.minScale);
+            alert('Minimum zoom reached');
         }
     }
 }
