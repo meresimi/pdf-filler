@@ -1,4 +1,18 @@
-document.addEventListener('deviceready', onDeviceReady, false);
+// Fallback if deviceready doesn't fire within 3 seconds
+let deviceReadyFired = false;
+
+document.addEventListener('deviceready', function() {
+    deviceReadyFired = true;
+    onDeviceReady();
+}, false);
+
+// Fallback for web testing or if deviceready fails
+setTimeout(function() {
+    if (!deviceReadyFired) {
+        console.log('deviceready timeout - initializing anyway');
+        onDeviceReady();
+    }
+}, 3000);
 
 let app = {
     pdfHandler: null,
@@ -6,14 +20,21 @@ let app = {
 };
 
 function onDeviceReady() {
-    console.log('Device ready');
+    console.log('Device ready - initializing app');
 
-    app.pdfHandler = new PDFHandler();
-    app.formEditor = new FormEditor();
-    app.pdfHandler.setFormEditor(app.formEditor);
+    try {
+        app.pdfHandler = new PDFHandler();
+        app.formEditor = new FormEditor();
+        app.pdfHandler.setFormEditor(app.formEditor);
 
-    setupEventListeners();
-    hideLoading();
+        setupEventListeners();
+        hideLoading();
+        
+        console.log('App initialized successfully');
+    } catch (error) {
+        console.error('Error initializing app:', error);
+        alert('Initialization error: ' + error.message);
+    }
 }
 
 function setupEventListeners() {
@@ -69,6 +90,8 @@ function setupEventListeners() {
             app.formEditor.showTextInput(x, y);
         }
     });
+    
+    console.log('Event listeners setup complete');
 }
 
 function openFilePicker() {
@@ -126,9 +149,14 @@ function savePDF() {
 }
 
 function showLoading() {
-    document.getElementById('loadingIndicator').style.display = 'flex';
+    const loader = document.getElementById('loadingIndicator');
+    if (loader) loader.style.display = 'flex';
 }
 
 function hideLoading() {
-    document.getElementById('loadingIndicator').style.display = 'none';
+    const loader = document.getElementById('loadingIndicator');
+    if (loader) loader.style.display = 'none';
 }
+
+// Log when scripts load
+console.log('app.js loaded');
