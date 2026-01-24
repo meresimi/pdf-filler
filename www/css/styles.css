@@ -86,23 +86,21 @@ p {
     flex: 1;
     overflow: auto;
     background: #e0e0e0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 10px;
+    display: block;
+    position: relative;
 }
 
 .canvas-wrapper {
-    position: relative;
     display: inline-block;
-    box-shadow: 0 0 10px rgba(0,0,0,0.3);
-    background: white;
+    position: relative;
+    margin: 0;
+    padding: 0;
 }
 
 #pdfCanvas {
     display: block;
-    max-width: 100%;
-    height: auto;
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
 }
 
 #editorPanel {
@@ -202,7 +200,6 @@ p {
     font-weight: bold;
 }
 
-/* Landscape mode */
 @media (orientation: landscape) {
     #mainContent {
         flex-direction: row;

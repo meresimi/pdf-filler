@@ -4,20 +4,23 @@ class PDFHandler {
     constructor() {
         this.pdfDoc = null;
         this.currentPage = 1;
-        this.scale = 1.0;
-        this.minScale = 1.0;
-        this.maxScale = 3.5; // 1.0 + (0.5 * 5) = 3.5
-        this.zoomStep = 0.5;
+        this.zoomLevel = 0; // 0 to 5
+        this.baseScale = 1.0;
+        this.scalePerZoom = 0.5;
         this.canvas = null;
         this.ctx = null;
         this.pdfBytes = null;
         this.formEditor = null;
         this.canvasContainer = null;
-        this.isRendering = false;
+        this.canvasWrapper = null;
     }
 
     setFormEditor(editor) {
         this.formEditor = editor;
+    }
+
+    getCurrentScale() {
+        return this.baseScale + (this.zoomLevel * this.scalePerZoom);
     }
 
     async loadPDF(file) {
@@ -33,10 +36,11 @@ class PDFHandler {
             this.canvas = document.getElementById('pdfCanvas');
             this.ctx = this.canvas.getContext('2d');
             this.canvasContainer = document.getElementById('canvasContainer');
+            this.canvasWrapper = this.canvas.parentElement;
             
             console.log('PDF loaded. Pages:', this.pdfDoc.numPages);
             this.currentPage = 1;
-            this.scale = this.minScale;
+            this.zoomLevel = 0;
             await this.renderPage(this.currentPage);
             
             this.setupTouchPan();
@@ -87,28 +91,16 @@ class PDFHandler {
     }
 
     async renderPage(pageNum) {
-        if (this.isRendering) {
-            console.log('Already rendering, skipping...');
-            return;
-        }
-
         try {
-            this.isRendering = true;
-            
-            if (!this.canvas) {
-                this.canvas = document.getElementById('pdfCanvas');
-                this.ctx = this.canvas.getContext('2d');
-            }
-            
-            console.log('Rendering page', pageNum, 'at scale', this.scale);
+            console.log('Rendering page', pageNum, 'zoom level:', this.zoomLevel);
             
             const page = await this.pdfDoc.getPage(pageNum);
-            const viewport = page.getViewport({ scale: this.scale });
+            const scale = this.getCurrentScale();
+            const viewport = page.getViewport({ scale: scale });
             
-            // Store scroll position
-            const scrollLeft = this.canvasContainer ? this.canvasContainer.scrollLeft : 0;
-            const scrollTop = this.canvasContainer ? this.canvasContainer.scrollTop : 0;
+            console.log('Viewport size:', viewport.width, 'x', viewport.height, 'at scale:', scale);
             
+            // Set canvas size
             this.canvas.width = viewport.width;
             this.canvas.height = viewport.height;
             
@@ -121,77 +113,59 @@ class PDFHandler {
                 viewport: viewport
             }).promise;
             
-            // Restore scroll position
-            if (this.canvasContainer) {
-                this.canvasContainer.scrollLeft = scrollLeft;
-                this.canvasContainer.scrollTop = scrollTop;
-            }
-            
             document.getElementById('pageInfo').textContent = 
                 `Page ${pageNum} of ${this.pdfDoc.numPages}`;
             
-            // Update annotations after a short delay
+            // Update annotations
             setTimeout(() => {
                 if (this.formEditor) {
                     this.formEditor.setPage(pageNum);
                 }
-            }, 100);
+            }, 50);
             
-            this.isRendering = false;
-            console.log('Page rendered successfully at scale:', this.scale);
+            console.log('Render complete');
         } catch (error) {
-            this.isRendering = false;
             console.error('Error rendering page:', error);
             throw error;
         }
     }
 
     previousPage() {
-        if (this.currentPage > 1 && !this.isRendering) {
+        if (this.currentPage > 1) {
             this.currentPage--;
             this.renderPage(this.currentPage);
         }
     }
 
     nextPage() {
-        if (this.currentPage < this.pdfDoc.numPages && !this.isRendering) {
+        if (this.currentPage < this.pdfDoc.numPages) {
             this.currentPage++;
             this.renderPage(this.currentPage);
         }
     }
 
     zoomIn() {
-        if (this.isRendering) {
-            console.log('Currently rendering, please wait');
-            return;
-        }
+        console.log('Zoom in clicked. Current level:', this.zoomLevel);
         
-        const newScale = this.scale + this.zoomStep;
-        
-        if (newScale <= this.maxScale) {
-            this.scale = newScale;
-            console.log('Zooming in to scale:', this.scale);
+        if (this.zoomLevel < 5) {
+            this.zoomLevel++;
+            console.log('New zoom level:', this.zoomLevel, 'Scale:', this.getCurrentScale());
             this.renderPage(this.currentPage);
         } else {
-            console.log('Already at max zoom:', this.maxScale);
+            console.log('Max zoom reached');
             alert('Maximum zoom reached');
         }
     }
 
     zoomOut() {
-        if (this.isRendering) {
-            console.log('Currently rendering, please wait');
-            return;
-        }
+        console.log('Zoom out clicked. Current level:', this.zoomLevel);
         
-        const newScale = this.scale - this.zoomStep;
-        
-        if (newScale >= this.minScale) {
-            this.scale = newScale;
-            console.log('Zooming out to scale:', this.scale);
+        if (this.zoomLevel > 0) {
+            this.zoomLevel--;
+            console.log('New zoom level:', this.zoomLevel, 'Scale:', this.getCurrentScale());
             this.renderPage(this.currentPage);
         } else {
-            console.log('Already at min zoom:', this.minScale);
+            console.log('Min zoom reached');
             alert('Minimum zoom reached');
         }
     }
