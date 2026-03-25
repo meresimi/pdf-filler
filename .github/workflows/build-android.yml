@@ -22,7 +22,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       # ── 3. Java (required by Gradle) ─────────────────────────────────────────
       - name: Set up Java 17
@@ -33,7 +32,7 @@ jobs:
 
       # ── 4. Install JS deps ───────────────────────────────────────────────────
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # ── 5. Vite build ────────────────────────────────────────────────────────
       - name: Build web assets
@@ -76,7 +75,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -85,7 +83,7 @@ jobs:
           java-version: "17"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build web assets
         run: npm run build
