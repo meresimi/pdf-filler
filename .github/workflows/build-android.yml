@@ -42,6 +42,34 @@ jobs:
       - name: Capacitor sync Android
         run: npx cap sync android
 
+      # ── Icons: copy all mipmap folders and XML into the Android project ──────
+      - name: Inject launcher icons
+        run: |
+          RES=android/app/src/main/res
+
+          # Copy mipmap PNGs
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p $RES/mipmap-${density}
+            cp android-assets/mipmap-${density}/ic_launcher.png           $RES/mipmap-${density}/ic_launcher.png
+            cp android-assets/mipmap-${density}/ic_launcher_round.png     $RES/mipmap-${density}/ic_launcher_round.png
+            cp android-assets/mipmap-${density}/ic_launcher_foreground.png $RES/mipmap-${density}/ic_launcher_foreground.png
+          done
+
+          # Adaptive icon XMLs (API 26+)
+          mkdir -p $RES/mipmap-anydpi-v26
+          cp android-assets/mipmap-anydpi-v26/ic_launcher.xml       $RES/mipmap-anydpi-v26/ic_launcher.xml
+          cp android-assets/mipmap-anydpi-v26/ic_launcher_round.xml  $RES/mipmap-anydpi-v26/ic_launcher_round.xml
+
+          # Background color resource
+          mkdir -p $RES/values
+          cp android-assets/values/ic_launcher_background.xml $RES/values/ic_launcher_background.xml
+
+      # ── Splash screen icon ────────────────────────────────────────────────────
+      - name: Inject splash icon
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp android-assets/splash.png android/app/src/main/res/drawable/splash.png
+
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x gradlew
@@ -50,11 +78,15 @@ jobs:
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
+      # ── Rename output to PDF-Filler.apk ──────────────────────────────────────
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/debug/PDF-Filler.apk
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: pdf-editor-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: PDF-Filler-debug
+          path: android/app/build/outputs/apk/debug/PDF-Filler.apk
           retention-days: 14
 
   # ── Release build (only on version tags) ─────────────────────────────────────
@@ -91,6 +123,26 @@ jobs:
       - name: Capacitor sync Android
         run: npx cap sync android
 
+      - name: Inject launcher icons
+        run: |
+          RES=android/app/src/main/res
+          for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p $RES/mipmap-${density}
+            cp android-assets/mipmap-${density}/ic_launcher.png            $RES/mipmap-${density}/ic_launcher.png
+            cp android-assets/mipmap-${density}/ic_launcher_round.png      $RES/mipmap-${density}/ic_launcher_round.png
+            cp android-assets/mipmap-${density}/ic_launcher_foreground.png $RES/mipmap-${density}/ic_launcher_foreground.png
+          done
+          mkdir -p $RES/mipmap-anydpi-v26
+          cp android-assets/mipmap-anydpi-v26/ic_launcher.xml      $RES/mipmap-anydpi-v26/ic_launcher.xml
+          cp android-assets/mipmap-anydpi-v26/ic_launcher_round.xml $RES/mipmap-anydpi-v26/ic_launcher_round.xml
+          mkdir -p $RES/values
+          cp android-assets/values/ic_launcher_background.xml $RES/values/ic_launcher_background.xml
+
+      - name: Inject splash icon
+        run: |
+          mkdir -p android/app/src/main/res/drawable
+          cp android-assets/splash.png android/app/src/main/res/drawable/splash.png
+
       - name: Make gradlew executable
         working-directory: android
         run: chmod +x gradlew
@@ -113,18 +165,21 @@ jobs:
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
             --no-daemon
 
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/release/app-release.apk android/app/build/outputs/apk/release/PDF-Filler.apk
+
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: pdf-editor-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          name: PDF-Filler-release
+          path: android/app/build/outputs/apk/release/PDF-Filler.apk
           retention-days: 30
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/app-release.apk
-          name: PDF Editor ${{ github.ref_name }}
+          files: android/app/build/outputs/apk/release/PDF-Filler.apk
+          name: PDF Filler ${{ github.ref_name }}
           draft: false
           prerelease: false
         env:
