@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 const FONTS = ["Helvetica", "Times New Roman", "Courier New", "Georgia", "Verdana", "Arial Black"];
 const COLORS = ["#000000","#ffffff","#e94560","#a78bfa","#f5a623","#2ecc71","#3498db","#ff6b6b","#1a1a2e","#0f3460"];
 const DEFAULT_FONT_SIZE = 16;
+const RENDER_SCALE = 2; // pdf.js render scale — must match savePDF mapping
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function loadScript(src) {
@@ -69,7 +70,7 @@ function SwipeStrip({ children, style }) {
   );
 }
 
-// ─── FontSizeControl (number-controlled, no stretch) ──────────────────────────
+// ─── FontSizeControl ──────────────────────────────────────────────────────────
 function FontSizeControl({ value, onChange }) {
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState(String(value));
@@ -135,6 +136,7 @@ export default function PDFEditor() {
 
   const fileRef      = useRef(null);
   const containerRef = useRef(null);
+  const scrollRef    = useRef(null); // FIX: ref for the scroll container
 
   // ── Load libs ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -156,7 +158,7 @@ export default function PDFEditor() {
       const imgs = [];
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
-        const vp = page.getViewport({ scale: 2 });
+        const vp = page.getViewport({ scale: RENDER_SCALE });
         const canvas = document.createElement("canvas");
         canvas.width = vp.width; canvas.height = vp.height;
         await page.render({ canvasContext: canvas.getContext("2d"), viewport: vp }).promise;
@@ -182,9 +184,11 @@ export default function PDFEditor() {
   };
 
   // ── Place text ────────────────────────────────────────────────────────────
+  // Coordinates stored in canvas pixels (at RENDER_SCALE), independent of zoom
   const handleCanvasClick = (e) => {
     if (!addingText || !pageImages[currentPage]) return;
     const rect = e.currentTarget.getBoundingClientRect();
+    // Divide by zoom to get canvas-space coords (not PDF points, not screen pixels)
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top)  / zoom;
     const nb = { id: uid(), x, y, page: currentPage, text: "Text", font: fontFamily, size: fontSize, bold, italic, color };
@@ -246,6 +250,9 @@ export default function PDFEditor() {
   const deleteSelected = () => { setTextBoxes(prev => prev.filter(b => b.id !== selected)); setSelected(null); };
 
   // ── Save PDF ──────────────────────────────────────────────────────────────
+  // box.x / box.y are in canvas pixels (rendered at RENDER_SCALE).
+  // PDF points = canvas pixels / RENDER_SCALE.
+  // Y in PDF-lib is bottom-up, so: pdfY = pdfHeight - (box.y / RENDER_SCALE) - fontSize
   const savePDF = async () => {
     if (!pdfBytes || !window.PDFLib) return;
     setSaving(true);
@@ -263,15 +270,18 @@ export default function PDFEditor() {
 
       for (const box of textBoxes) {
         const pg = pages[box.page]; if (!pg) continue;
-        const { width, height } = pg.getSize();
-        const imgW = (pageImages[box.page]?.width  || width  * 2) / 2;
-        const imgH = (pageImages[box.page]?.height || height * 2) / 2;
+        const { width: pdfW, height: pdfH } = pg.getSize();
+
+        // canvas pixels → PDF points (undo the RENDER_SCALE factor)
+        const pdfX = box.x / RENDER_SCALE;
+        const pdfY = pdfH - (box.y / RENDER_SCALE) - box.size;
+
         const sf = stdFont(box);
         if (!cache[sf]) cache[sf] = await doc.embedFont(sf);
         const [r,g,b] = hexToRgbArr(box.color);
         pg.drawText(box.text, {
-          x: box.x * (width / imgW),
-          y: height - (box.y + box.size) * (height / imgH),
+          x: pdfX,
+          y: pdfY,
           size: box.size,
           font: cache[sf],
           color: rgb(r, g, b),
@@ -316,11 +326,9 @@ export default function PDFEditor() {
 
       {/* ══ TOP BAR ═══════════════════════════════════════════════════════════ */}
       <div style={{ background:"#16161f", borderBottom:"1px solid #2a2a3a", height:50, flexShrink:0, display:"flex", alignItems:"center" }}>
-        {/* Fixed logo */}
         <div style={{ flexShrink:0, padding:"0 14px", borderRight:"1px solid #2a2a3a", height:"100%", display:"flex", alignItems:"center" }}>
           <span style={{ fontFamily:"'Space Mono',monospace", fontSize:14, fontWeight:700, color:"#e94560", letterSpacing:-0.5, whiteSpace:"nowrap" }}>PDF•ED</span>
         </div>
-        {/* Swipeable buttons */}
         <SwipeStrip style={{ flex:1, height:"100%", padding:"0 10px", gap:8 }}>
           <Btn onClick={() => fileRef.current.click()} accent="#e94560">⊕ Open</Btn>
           <input ref={fileRef} type="file" accept=".pdf" onChange={openFile} style={{ display:"none" }} />
@@ -395,8 +403,18 @@ export default function PDFEditor() {
           </div>
         )}
 
-        {/* PDF canvas */}
-        <div style={{ flex:1, overflow:"auto", display:"flex", justifyContent:"center", alignItems:"flex-start", padding:20 }}>
+        {/* ── PDF scroll container — FIX: touchAction here, not on the canvas div */}
+        <div
+          ref={scrollRef}
+          style={{
+            flex:1, overflow:"auto",
+            display:"flex", justifyContent:"center", alignItems:"flex-start",
+            padding:20,
+            // Allow panning in both axes so zoomed PDFs are scrollable with one finger.
+            // When dragging a text box we hand full control to our JS handlers instead.
+            touchAction: dragging ? "none" : "pan-x pan-y",
+          }}
+        >
 
           {loading && <div style={{ color:"#e94560", fontFamily:"'Space Mono',monospace", marginTop:60 }}>Loading PDF…</div>}
 
@@ -413,10 +431,24 @@ export default function PDFEditor() {
           )}
 
           {pageImg && !loading && (
-            <div ref={containerRef} onClick={handleCanvasClick}
-              style={{ position:"relative", width:pageImg.width*zoom, height:pageImg.height*zoom, flexShrink:0,
-                cursor: addingText?"crosshair":"default", boxShadow:"0 8px 40px #000b", borderRadius:3, overflow:"hidden", userSelect:"none",
-                touchAction: dragging?"none":"pan-x pan-y" }}>
+            <div
+              ref={containerRef}
+              onClick={handleCanvasClick}
+              style={{
+                position:"relative",
+                width:pageImg.width * zoom,
+                height:pageImg.height * zoom,
+                flexShrink:0,
+                cursor: addingText ? "crosshair" : "default",
+                boxShadow:"0 8px 40px #000b",
+                borderRadius:3,
+                overflow:"hidden",
+                userSelect:"none",
+                // FIX: canvas div must NOT consume touch events — let the scroll
+                // container handle panning. Only block when dragging a text box.
+                touchAction: dragging ? "none" : "auto",
+              }}
+            >
               <img src={pageImg.dataUrl} style={{ width:"100%", height:"100%", display:"block", pointerEvents:"none" }} />
               {textBoxes.filter(b => b.page === currentPage).map(b => (
                 <TextBox key={b.id} box={b} zoom={zoom}
@@ -508,7 +540,10 @@ function TextBox({ box, zoom, selected, onSelect, onStartDrag, onChange }) {
     borderRadius:3, padding:"2px 4px",
     background: selected?"rgba(233,69,96,0.06)":"transparent",
     whiteSpace:"pre", lineHeight:1.2, zIndex: selected?10:5,
-    minWidth:20, cursor:"move", userSelect:"none", touchAction:"none",
+    minWidth:20, cursor:"move", userSelect:"none",
+    // FIX: touchAction:none only on the text box itself so drag works,
+    // but this won't block the parent scroll when no text box is being touched
+    touchAction:"none",
   };
 
   const startTouchDrag = (e) => {
