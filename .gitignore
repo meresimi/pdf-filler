@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Capacitor Android (generated — commit only after first `cap add android`)
+# Comment these out once you've committed the android/ folder
+# android/
+
+# Keystore — NEVER commit
+*.keystore
+*.jks
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Gradle
+android/.gradle/
+android/build/
+android/app/build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
